@@ -10,6 +10,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/dustin/go-humanize"
 	"golang.org/x/time/rate"
 )
 
@@ -83,16 +84,19 @@ func handleClient(conn net.Conn, backend string, debug bool) {
 func main() {
 	addr := flag.String("addr", "127.0.0.1:12000", "bind address")
 	backend := flag.String("backend", "", "backend address")
-	r := flag.Int("rate", 0, "incoming traffic rate limit")
+	rs := flag.String("rate", "0", "incoming traffic rate limit")
 	debug := flag.Bool("debug", false, "turn on debugging")
 	flag.Parse()
 	if *addr == "" || *backend == "" {
 		flag.Usage()
 		os.Exit(1)
 	}
-	if *r >= 8 {
-		limit := rate.Limit(*r) / 8
-		limiter = rate.NewLimiter(limit, int(limit))
+	r, err := humanize.ParseBytes(*rs)
+	if err != nil {
+		log.Panicf("invalid rate %q: %v", *rs, err)
+	}
+	if r > 0 {
+		limiter = rate.NewLimiter(rate.Limit(r), int(r))
 	}
 	l, err := net.Listen("tcp", *addr)
 	if err != nil {
