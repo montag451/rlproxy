@@ -14,8 +14,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-var limiter *rate.Limiter
-
 type throttledReader struct {
 	r io.Reader
 	l *rate.Limiter
@@ -46,7 +44,7 @@ func (r *throttledReader) Read(buf []byte) (int, error) {
 	return n, err
 }
 
-func handleClient(conn net.Conn, backend string, debug bool) {
+func handleClient(conn net.Conn, backend string, limiter *rate.Limiter, debug bool) {
 	defer conn.Close()
 	if debug {
 		defer log.Printf("stop processing request for client: %v", conn.RemoteAddr())
@@ -85,6 +83,7 @@ func main() {
 	addr := flag.String("addr", "127.0.0.1:12000", "bind address")
 	backend := flag.String("backend", "", "backend address")
 	rs := flag.String("rate", "0", "incoming traffic rate limit")
+	perClient := flag.Bool("per-client", false, "apply rate limit per client")
 	debug := flag.Bool("debug", false, "turn on debugging")
 	flag.Parse()
 	if *addr == "" || *backend == "" {
@@ -95,6 +94,7 @@ func main() {
 	if err != nil {
 		log.Panicf("invalid rate %q: %v", *rs, err)
 	}
+	var limiter *rate.Limiter
 	if r > 0 {
 		limiter = rate.NewLimiter(rate.Limit(r), int(r))
 	}
@@ -108,6 +108,10 @@ func main() {
 		if err != nil {
 			log.Panic(err)
 		}
-		go handleClient(conn, *backend, *debug)
+		limiter := limiter
+		if r > 0 && *perClient {
+			limiter = rate.NewLimiter(rate.Limit(r), int(r))
+		}
+		go handleClient(conn, *backend, limiter, *debug)
 	}
 }
