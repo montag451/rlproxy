@@ -44,18 +44,18 @@ func (r *throttledReader) Read(buf []byte) (int, error) {
 	return n, err
 }
 
-func handleClient(conn net.Conn, backend string, limiter *rate.Limiter, debug bool) {
+func handleClient(conn net.Conn, upstream string, limiter *rate.Limiter, debug bool) {
 	defer conn.Close()
 	if debug {
 		defer log.Printf("stop processing request for client: %v", conn.RemoteAddr())
 		log.Printf("new client: %v", conn.RemoteAddr())
 	}
-	bconn, err := net.Dial("tcp", backend)
+	uconn, err := net.Dial("tcp", upstream)
 	if err != nil {
-		log.Printf("failed to connect to backend: %v", err)
+		log.Printf("failed to connect to upstream: %v", err)
 		return
 	}
-	defer bconn.Close()
+	defer uconn.Close()
 	var wg sync.WaitGroup
 	forward := func(from, to net.Conn, limit bool) {
 		defer wg.Done()
@@ -74,19 +74,19 @@ func handleClient(conn net.Conn, backend string, limiter *rate.Limiter, debug bo
 		}
 	}
 	wg.Add(2)
-	go forward(conn, bconn, true)
-	go forward(bconn, conn, false)
+	go forward(conn, uconn, true)
+	go forward(uconn, conn, false)
 	wg.Wait()
 }
 
 func main() {
 	addr := flag.String("addr", "127.0.0.1:12000", "bind address")
-	backend := flag.String("backend", "", "backend address")
+	upstream := flag.String("upstream", "", "upstream address")
 	rs := flag.String("rate", "0", "incoming traffic rate limit")
 	perClient := flag.Bool("per-client", false, "apply rate limit per client")
 	debug := flag.Bool("debug", false, "turn on debugging")
 	flag.Parse()
-	if *addr == "" || *backend == "" {
+	if *addr == "" || *upstream == "" {
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -112,6 +112,6 @@ func main() {
 		if r > 0 && *perClient {
 			limiter = rate.NewLimiter(rate.Limit(r), int(r))
 		}
-		go handleClient(conn, *backend, limiter, *debug)
+		go handleClient(conn, *upstream, limiter, *debug)
 	}
 }
