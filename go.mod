@@ -1,4 +1,4 @@
-module rlproxy
+module github.com/montag451/rlproxy
 
 go 1.13
 
