@@ -47,7 +47,7 @@ func (r *throttledReader) Read(buf []byte) (int, error) {
 func handleClient(conn net.Conn, upstream string, limiter *rate.Limiter, debug bool) {
 	defer conn.Close()
 	if debug {
-		defer log.Printf("stop processing request for client: %v", conn.RemoteAddr())
+		defer log.Printf("stop proxying client: %v", conn.RemoteAddr())
 		log.Printf("new client: %v", conn.RemoteAddr())
 	}
 	uconn, err := net.Dial("tcp", upstream)
