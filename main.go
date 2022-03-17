@@ -70,7 +70,7 @@ func handleClient(conn net.Conn, upstream string, limiter *rate.Limiter, debug b
 			r = newThrottledReader(from, limiter)
 		}
 		if _, err := io.Copy(to, r); err != nil && !errors.Is(err, io.EOF) {
-			log.Println("error while forwarding %v -> %v", fromAddr, toAddr)
+			log.Printf("error while forwarding %v -> %v: %v", fromAddr, toAddr, err)
 		}
 	}
 	wg.Add(2)
