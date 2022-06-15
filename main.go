@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"flag"
 	"io"
@@ -11,40 +10,10 @@ import (
 	"sync"
 
 	"github.com/dustin/go-humanize"
-	"golang.org/x/time/rate"
+	"github.com/juju/ratelimit"
 )
 
-type throttledReader struct {
-	r io.Reader
-	l *rate.Limiter
-}
-
-func newThrottledReader(r io.Reader, l *rate.Limiter) *throttledReader {
-	return &throttledReader{
-		r: r,
-		l: l,
-	}
-}
-
-func (r *throttledReader) Read(buf []byte) (int, error) {
-	n, err := r.r.Read(buf)
-	if r.l == nil || n == 0 {
-		return n, err
-	}
-	b := r.l.Burst()
-	rem := n
-	for rem > 0 {
-		wait := b
-		if rem <= b {
-			wait = rem
-		}
-		_ = r.l.WaitN(context.TODO(), wait)
-		rem -= wait
-	}
-	return n, err
-}
-
-func handleClient(conn net.Conn, upstream string, limiter *rate.Limiter, debug bool) {
+func handleClient(conn net.Conn, upstream string, limiter *ratelimit.Bucket, debug bool) {
 	defer conn.Close()
 	if debug {
 		defer log.Printf("stop proxying client: %v", conn.RemoteAddr())
@@ -67,7 +36,7 @@ func handleClient(conn net.Conn, upstream string, limiter *rate.Limiter, debug b
 		}
 		var r io.Reader = from
 		if limit {
-			r = newThrottledReader(from, limiter)
+			r = ratelimit.Reader(from, limiter)
 		}
 		if _, err := io.Copy(to, r); err != nil && !errors.Is(err, io.EOF) {
 			log.Printf("error while forwarding %v -> %v: %v", fromAddr, toAddr, err)
@@ -94,9 +63,9 @@ func main() {
 	if err != nil {
 		log.Panicf("invalid rate %q: %v", *rs, err)
 	}
-	var limiter *rate.Limiter
+	var limiter *ratelimit.Bucket
 	if r > 0 {
-		limiter = rate.NewLimiter(rate.Limit(r), int(r))
+		limiter = ratelimit.NewBucketWithRate(float64(r), int64(r))
 	}
 	l, err := net.Listen("tcp", *addr)
 	if err != nil {
@@ -110,7 +79,7 @@ func main() {
 		}
 		limiter := limiter
 		if r > 0 && *perClient {
-			limiter = rate.NewLimiter(rate.Limit(r), int(r))
+			limiter = ratelimit.NewBucketWithRate(float64(r), int64(r))
 		}
 		go handleClient(conn, *upstream, limiter, *debug)
 	}
