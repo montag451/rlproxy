@@ -11,11 +11,15 @@ import (
 	"net"
 	"os"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/montag451/go-sflag"
 	"golang.org/x/time/rate"
 )
+
+var counter atomic.Uint64
 
 type configuration struct {
 	Name      string `json:"name" flag:"name,,instance name"`
@@ -40,19 +44,19 @@ func newThrottledReader(r io.Reader, l *rate.Limiter) *throttledReader {
 
 func (r *throttledReader) Read(buf []byte) (int, error) {
 	n, err := r.r.Read(buf)
-	if r.l == nil || n == 0 {
-		return n, err
-	}
-	b := r.l.Burst()
-	rem := n
-	for rem > 0 {
-		wait := b
-		if rem <= b {
-			wait = rem
+	if r.l != nil && n > 0 {
+		b := r.l.Burst()
+		rem := n
+		for rem > 0 {
+			wait := b
+			if rem <= b {
+				wait = rem
+			}
+			_ = r.l.WaitN(context.TODO(), wait)
+			rem -= wait
 		}
-		_ = r.l.WaitN(context.TODO(), wait)
-		rem -= wait
 	}
+	counter.Add(uint64(n))
 	return n, err
 }
 
@@ -137,6 +141,15 @@ func main() {
 		log.Panic(err)
 	}
 	defer l.Close()
+	go func() {
+		var prev uint64
+		for {
+			time.Sleep(1 * time.Second)
+			cur := counter.Load()
+			log.Printf("rate: %v bps", (cur-prev)*8)
+			prev = cur
+		}
+	}()
 	for {
 		conn, err := l.Accept()
 		if err != nil {
