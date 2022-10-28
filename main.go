@@ -108,12 +108,6 @@ func parseConf(c *configuration, cf string) error {
 func main() {
 	var c configuration
 	cf := flag.String("conf", "", "configuration file")
-	// flag.String("name", "", "instance name")
-	// flag.String("addr", "127.0.0.1:12000", "bind address")
-	// flag.String("upstream", "", "upstream address")
-	// flag.String("rate", "0", "incoming traffic rate limit")
-	// flag.Bool("per-client", false, "apply rate limit per client")
-	// flag.Bool("debug", false, "turn on debugging")
 	sflag.AddFlags(flag.CommandLine, c)
 	flag.Parse()
 	if *cf != "" {
