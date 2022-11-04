@@ -10,8 +10,11 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
+	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -19,15 +22,29 @@ import (
 	"golang.org/x/time/rate"
 )
 
+type StringSlice []string
+
+func (ss *StringSlice) String() string {
+	if ss == nil {
+		return fmt.Sprint(StringSlice{})
+	}
+	return fmt.Sprint(*ss)
+}
+
+func (ss *StringSlice) Set(s string) error {
+	*ss = strings.Split(s, ",")
+	return nil
+}
+
 var counter atomic.Uint64
 
 type configuration struct {
-	Name      string `json:"name" flag:"name,,instance name"`
-	Addr      string `json:"addr" flag:"addr,127.0.0.1:12000,bind addr"`
-	Upstream  string `json:"upstream" flag:"upstream,,upstream address"`
-	Rate      string `json:"rate" flag:"rate,0,incoming traffic rate limit"`
-	PerClient bool   `json:"per_client" flag:"per-client,false,apply rate limit per client"`
-	Debug     bool   `json:"debug" flag:"debug,false,turn on debugging"`
+	Name      string      `json:"name" flag:"name,,instance name"`
+	Addrs     StringSlice `json:"addrs" flag:"addrs,127.0.0.1:12000,bind addresses"`
+	Upstream  string      `json:"upstream" flag:"upstream,,upstream address"`
+	Rate      string      `json:"rate" flag:"rate,0,incoming traffic rate limit"`
+	PerClient bool        `json:"per_client" flag:"per-client,false,apply rate limit per client"`
+	Debug     bool        `json:"debug" flag:"debug,false,turn on debugging"`
 }
 
 type throttledReader struct {
@@ -121,7 +138,7 @@ func main() {
 		}
 	}
 	sflag.SetFromFlags(&c, flag.CommandLine)
-	if c.Addr == "" || c.Upstream == "" {
+	if len(c.Addrs) == 0 || c.Upstream == "" {
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -136,11 +153,40 @@ func main() {
 	if r > 0 {
 		limiter = rate.NewLimiter(rate.Limit(r), int(r))
 	}
-	l, err := net.Listen("tcp", c.Addr)
-	if err != nil {
-		log.Panic(err)
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	listeners := make([]*net.TCPListener, len(c.Addrs))
+	defer func() {
+		for _, l := range listeners {
+			l.Close()
+		}
+	}()
+	var wg sync.WaitGroup
+	for i, addr := range c.Addrs {
+		l, err := net.Listen("tcp", addr)
+		if err != nil {
+			log.Panic(err)
+		}
+		listeners[i] = l.(*net.TCPListener)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				conn, err := l.Accept()
+				if err != nil {
+					if !os.IsTimeout(err) {
+						log.Panic(err)
+					}
+					break
+				}
+				limiter := limiter
+				if r > 0 && c.PerClient {
+					limiter = rate.NewLimiter(rate.Limit(r), int(r))
+				}
+				go handleClient(conn, c.Upstream, limiter, c.Debug)
+			}
+		}()
 	}
-	defer l.Close()
 	go func() {
 		var prev uint64
 		for {
@@ -150,15 +196,10 @@ func main() {
 			prev = cur
 		}
 	}()
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			log.Panic(err)
-		}
-		limiter := limiter
-		if r > 0 && c.PerClient {
-			limiter = rate.NewLimiter(rate.Limit(r), int(r))
-		}
-		go handleClient(conn, c.Upstream, limiter, c.Debug)
+	sig := <-sigCh
+	log.Printf("signal %s received, exiting", sig)
+	for _, l := range listeners {
+		l.SetDeadline(time.Now())
 	}
+	wg.Wait()
 }

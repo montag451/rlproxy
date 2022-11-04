@@ -17,7 +17,9 @@ configuration file must be a JSON file with the following format:
 ``` json
 {
     "name": "my-beloved-app",
-    "addr": "127.0.0.1:12000",
+    "addrs": [
+        "127.0.0.1:12000"
+    ],
     "upstream": "127.0.0.1:12001"
     "rate": "10M",
     "per_client": false,
