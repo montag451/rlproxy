@@ -99,7 +99,7 @@ func handleClient(conn net.Conn, upstream string, limiter *rate.Limiter, debug b
 			defer log.Printf("forward done %v -> %v", fromAddr, toAddr)
 		}
 		var r io.Reader = from
-		if limit {
+		if limit && limiter != nil {
 			r = newThrottledReader(from, limiter)
 		}
 		if _, err := io.Copy(to, r); err != nil && !errors.Is(err, io.EOF) {
