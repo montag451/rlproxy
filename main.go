@@ -89,7 +89,7 @@ func splice(rfd uintptr, wfd uintptr) (int64, error) {
 func (r *throttledReader) WriteTo(w io.Writer) (int64, error) {
 	pr, pw, err := os.Pipe()
 	if err != nil {
-		return 0, fmt.Errorf("failed create splice pipes: %v", err)
+		return 0, fmt.Errorf("failed to create splice pipes: %v", err)
 	}
 	defer pr.Close()
 	defer pw.Close()
