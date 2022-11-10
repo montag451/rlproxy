@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -116,7 +115,7 @@ func handleClient(c *configuration, conn net.Conn, limiter *rate.Limiter) {
 			r = readerOnly{r}
 			w = writerOnly{w}
 		}
-		if _, err := io.Copy(w, r); err != nil && !errors.Is(err, io.EOF) {
+		if _, err := io.Copy(w, r); err != nil {
 			log.Printf("error while forwarding %v -> %v: %v", fromAddr, toAddr, err)
 		}
 	}
