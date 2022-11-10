@@ -44,6 +44,7 @@ type configuration struct {
 	Upstream  string      `json:"upstream" flag:"upstream,,upstream address"`
 	Rate      string      `json:"rate" flag:"rate,0,incoming traffic rate limit"`
 	PerClient bool        `json:"per_client" flag:"per-client,false,apply rate limit per client"`
+	NoSplice  bool        `json:"no-splice" flag:"no-splice,false,disable the use of the splice syscall (Linux only)"`
 	Debug     bool        `json:"debug" flag:"debug,false,turn on debugging"`
 }
 
@@ -77,13 +78,21 @@ func (r *throttledReader) Read(buf []byte) (int, error) {
 	return n, err
 }
 
-func handleClient(conn net.Conn, upstream string, limiter *rate.Limiter, debug bool) {
+type readerOnly struct {
+	io.Reader
+}
+
+type writerOnly struct {
+	io.Writer
+}
+
+func handleClient(c *configuration, conn net.Conn, limiter *rate.Limiter) {
 	defer conn.Close()
-	if debug {
+	if c.Debug {
 		defer log.Printf("stop proxying client: %v", conn.RemoteAddr())
 		log.Printf("new client: %v", conn.RemoteAddr())
 	}
-	uconn, err := net.Dial("tcp", upstream)
+	uconn, err := net.Dial("tcp", c.Upstream)
 	if err != nil {
 		log.Printf("failed to connect to upstream: %v", err)
 		return
@@ -94,15 +103,20 @@ func handleClient(conn net.Conn, upstream string, limiter *rate.Limiter, debug b
 		defer wg.Done()
 		defer to.(*net.TCPConn).CloseWrite()
 		fromAddr, toAddr := from.RemoteAddr(), to.RemoteAddr()
-		if debug {
+		if c.Debug {
 			log.Printf("forward start %v -> %v", fromAddr, toAddr)
 			defer log.Printf("forward done %v -> %v", fromAddr, toAddr)
 		}
+		var w io.Writer = to
 		var r io.Reader = from
 		if limit {
 			r = newThrottledReader(from, limiter)
 		}
-		if _, err := io.Copy(to, r); err != nil && !errors.Is(err, io.EOF) {
+		if c.NoSplice {
+			r = readerOnly{r}
+			w = writerOnly{w}
+		}
+		if _, err := io.Copy(w, r); err != nil && !errors.Is(err, io.EOF) {
 			log.Printf("error while forwarding %v -> %v: %v", fromAddr, toAddr, err)
 		}
 	}
@@ -183,7 +197,7 @@ func main() {
 				if r > 0 && c.PerClient {
 					limiter = rate.NewLimiter(rate.Limit(r), int(r))
 				}
-				go handleClient(conn, c.Upstream, limiter, c.Debug)
+				go handleClient(&c, conn, limiter)
 			}
 		}()
 	}
