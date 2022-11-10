@@ -45,12 +45,15 @@ func (r *throttledReader) WriteTo(w io.Writer) (int64, error) {
 	for {
 		var err error
 		var inPipe int64
-		src.Read(func(rfd uintptr) bool {
+		if serr := src.Read(func(rfd uintptr) bool {
 			for {
-				pwc.Write(func(wfd uintptr) bool {
+				if werr := pwc.Write(func(wfd uintptr) bool {
 					inPipe, err = splice(rfd, wfd)
 					return true
-				})
+				}); werr != nil {
+					err = werr
+					return true
+				}
 				if err == syscall.EINTR {
 					continue
 				}
@@ -59,7 +62,9 @@ func (r *throttledReader) WriteTo(w io.Writer) (int64, error) {
 				}
 				return true
 			}
-		})
+		}); serr != nil {
+			err = serr
+		}
 		if err != nil {
 			return written, err
 		}
@@ -81,12 +86,15 @@ func (r *throttledReader) WriteTo(w io.Writer) (int64, error) {
 		counter.Add(uint64(inPipe))
 		for inPipe > 0 {
 			var n int64
-			swc.Write(func(wfd uintptr) bool {
+			if werr := swc.Write(func(wfd uintptr) bool {
 				for {
-					prc.Read(func(rfd uintptr) bool {
+					if serr := prc.Read(func(rfd uintptr) bool {
 						n, err = splice(rfd, wfd)
 						return true
-					})
+					}); serr != nil {
+						err = serr
+						return true
+					}
 					if err == syscall.EINTR {
 						continue
 					}
@@ -95,7 +103,9 @@ func (r *throttledReader) WriteTo(w io.Writer) (int64, error) {
 					}
 					return true
 				}
-			})
+			}); werr != nil {
+				err = werr
+			}
 			if err != nil {
 				return written, err
 			}
