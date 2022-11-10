@@ -6,16 +6,14 @@ import (
 	"io"
 	"net"
 	"os"
-	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
-const (
-	spliceNonblock = 0x2
-	maxSpliceSize  = 1 << 20
-)
+const maxSpliceSize = 1 << 20
 
 func splice(rfd uintptr, wfd uintptr) (int64, error) {
-	return syscall.Splice(int(rfd), nil, int(wfd), nil, maxSpliceSize, spliceNonblock)
+	return unix.Splice(int(rfd), nil, int(wfd), nil, maxSpliceSize, unix.SPLICE_F_NONBLOCK)
 }
 
 func (r *throttledReader) WriteTo(w io.Writer) (int64, error) {
@@ -54,10 +52,10 @@ func (r *throttledReader) WriteTo(w io.Writer) (int64, error) {
 					err = werr
 					return true
 				}
-				if err == syscall.EINTR {
+				if err == unix.EINTR {
 					continue
 				}
-				if err == syscall.EAGAIN {
+				if err == unix.EAGAIN {
 					return false
 				}
 				return true
@@ -95,10 +93,10 @@ func (r *throttledReader) WriteTo(w io.Writer) (int64, error) {
 						err = serr
 						return true
 					}
-					if err == syscall.EINTR {
+					if err == unix.EINTR {
 						continue
 					}
-					if err == syscall.EAGAIN {
+					if err == unix.EAGAIN {
 						return false
 					}
 					return true
