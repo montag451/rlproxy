@@ -44,7 +44,7 @@ type configuration struct {
 	Upstream  string      `json:"upstream" flag:"upstream,,upstream address"`
 	Rate      string      `json:"rate" flag:"rate,0,incoming traffic rate limit"`
 	PerClient bool        `json:"per_client" flag:"per-client,false,apply rate limit per client"`
-	NoSplice  bool        `json:"no-splice" flag:"no-splice,false,disable the use of the splice syscall (Linux only)"`
+	NoSplice  bool        `json:"no_splice" flag:"no-splice,false,disable the use of the splice syscall (Linux only)"`
 	Debug     bool        `json:"debug" flag:"debug,false,turn on debugging"`
 }
 
