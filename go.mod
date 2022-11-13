@@ -5,6 +5,8 @@ go 1.17
 require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/montag451/go-sflag v0.0.0-20221104152957-c05c5b47ec43
-	golang.org/x/sys v0.2.0
+	github.com/montag451/go-splice v0.0.0-20221113170642-420d36198659
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65
 )
+
+require golang.org/x/sys v0.2.0 // indirect
