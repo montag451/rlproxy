@@ -13,11 +13,11 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/montag451/go-sflag"
-	"golang.org/x/sys/unix"
 	"golang.org/x/time/rate"
 )
 
@@ -167,7 +167,7 @@ func main() {
 		limiter = rate.NewLimiter(rate.Limit(r), int(r))
 	}
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, unix.SIGINT, unix.SIGTERM)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	listeners := make([]*net.TCPListener, len(c.Addrs))
 	defer func() {
 		for _, l := range listeners {
