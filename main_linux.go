@@ -26,6 +26,7 @@ func (r *throttledReader) WriteTo(w io.Writer) (int64, error) {
 				rem -= wait
 			}
 		}
+		counter.Add(uint64(n))
 	}
 	opts := []splice.Option{
 		splice.WithProgressHandler(progress),
