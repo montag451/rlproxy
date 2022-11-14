@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -35,16 +36,50 @@ func (ss *StringSlice) Set(s string) error {
 	return nil
 }
 
+type HumanBytes uint64
+
+func (h *HumanBytes) String() string {
+	if h == nil {
+		return strconv.FormatUint(uint64(HumanBytes(0)), 10)
+	}
+	return strconv.FormatUint(uint64(*h), 10)
+}
+
+func (h *HumanBytes) Set(s string) error {
+	n, err := humanize.ParseBytes(s)
+	if err != nil {
+		return err
+	}
+	*h = HumanBytes(n)
+	return nil
+}
+
+func (h *HumanBytes) UnmarshalJSON(b []byte) error {
+	var v interface{}
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+	switch v := v.(type) {
+	case string:
+		return h.Set(v)
+	case float64:
+		*h = HumanBytes(v)
+		return nil
+	default:
+		return fmt.Errorf("cannot unmarshal %q into a bytes number", b)
+	}
+}
+
 var counter atomic.Uint64
 
 type configuration struct {
 	Name      string      `json:"name" flag:"name,,instance name"`
 	Addrs     StringSlice `json:"addrs" flag:"addrs,127.0.0.1:12000,bind addresses"`
 	Upstream  string      `json:"upstream" flag:"upstream,,upstream address"`
-	Rate      string      `json:"rate" flag:"rate,0,incoming traffic rate limit"`
-	PerClient bool        `json:"per_client" flag:"per-client,false,apply rate limit per client"`
-	NoSplice  bool        `json:"no_splice" flag:"no-splice,false,disable the use of the splice syscall (Linux only)"`
-	Debug     bool        `json:"debug" flag:"debug,false,turn on debugging"`
+	Rate      HumanBytes  `json:"rate" flag:"rate,,incoming traffic rate limit"`
+	PerClient bool        `json:"per_client" flag:"per-client,,apply rate limit per client"`
+	NoSplice  bool        `json:"no_splice" flag:"no-splice,,disable the use of the splice syscall (Linux only)"`
+	Debug     bool        `json:"debug" flag:"debug,,turn on debugging"`
 }
 
 type throttledReader struct {
@@ -158,13 +193,9 @@ func main() {
 	if c.Debug {
 		log.Printf("%+v", c)
 	}
-	r, err := humanize.ParseBytes(c.Rate)
-	if err != nil {
-		log.Panicf("invalid rate %q: %v", c.Rate, err)
-	}
 	var limiter *rate.Limiter
-	if r > 0 {
-		limiter = rate.NewLimiter(rate.Limit(r), int(r))
+	if c.Rate > 0 {
+		limiter = rate.NewLimiter(rate.Limit(c.Rate), int(c.Rate))
 	}
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -193,8 +224,8 @@ func main() {
 					break
 				}
 				limiter := limiter
-				if r > 0 && c.PerClient {
-					limiter = rate.NewLimiter(rate.Limit(r), int(r))
+				if c.Rate > 0 && c.PerClient {
+					limiter = rate.NewLimiter(rate.Limit(c.Rate), int(c.Rate))
 				}
 				go handleClient(&c, conn, limiter)
 			}
