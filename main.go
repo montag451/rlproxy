@@ -1,11 +1,9 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
@@ -79,45 +77,8 @@ type configuration struct {
 	Rate      HumanBytes  `json:"rate" flag:"rate,,incoming traffic rate limit"`
 	PerClient bool        `json:"per_client" flag:"per-client,,apply rate limit per client"`
 	NoSplice  bool        `json:"no_splice" flag:"no-splice,,disable the use of the splice syscall (Linux only)"`
+	BufSize   HumanBytes  `json:"buf_size" flag:"buf-size,,buffer size to use to transfer data between the downstream clients and the upstream server"`
 	Debug     bool        `json:"debug" flag:"debug,,turn on debugging"`
-}
-
-type throttledReader struct {
-	r io.Reader
-	l *rate.Limiter
-}
-
-func newThrottledReader(r io.Reader, l *rate.Limiter) *throttledReader {
-	return &throttledReader{
-		r: r,
-		l: l,
-	}
-}
-
-func (r *throttledReader) Read(buf []byte) (int, error) {
-	n, err := r.r.Read(buf)
-	if r.l != nil && n > 0 {
-		b := r.l.Burst()
-		rem := n
-		for rem > 0 {
-			wait := b
-			if rem <= b {
-				wait = rem
-			}
-			_ = r.l.WaitN(context.TODO(), wait)
-			rem -= wait
-		}
-	}
-	counter.Add(uint64(n))
-	return n, err
-}
-
-type readerOnly struct {
-	io.Reader
-}
-
-type writerOnly struct {
-	io.Writer
 }
 
 func handleClient(c *configuration, conn net.Conn, limiter *rate.Limiter) {
@@ -141,16 +102,14 @@ func handleClient(c *configuration, conn net.Conn, limiter *rate.Limiter) {
 			log.Printf("forward start %v -> %v", fromAddr, toAddr)
 			defer log.Printf("forward done %v -> %v", fromAddr, toAddr)
 		}
-		var w io.Writer = to
-		var r io.Reader = from
+		var r *throttledReader
+		bs := int64(c.BufSize)
 		if limit {
-			r = newThrottledReader(from, limiter)
+			r = newThrottledReader(from, limiter, bs, c.NoSplice)
+		} else {
+			r = newThrottledReader(from, nil, bs, c.NoSplice)
 		}
-		if c.NoSplice {
-			r = readerOnly{r}
-			w = writerOnly{w}
-		}
-		if _, err := io.Copy(w, r); err != nil {
+		if _, err := r.WriteTo(to); err != nil {
 			log.Printf("error while forwarding %v -> %v: %v", fromAddr, toAddr, err)
 		}
 	}
