@@ -33,6 +33,11 @@ func newThrottledReader(r io.Reader, l *rate.Limiter, bs int64, noSplice bool) *
 
 func (r *throttledReader) Read(buf []byte) (int, error) {
 	n, err := r.r.Read(buf)
+	r.throttle(n)
+	return n, err
+}
+
+func (r *throttledReader) throttle(n int) {
 	if r.l != nil && n > 0 {
 		b := r.l.Burst()
 		rem := n
@@ -46,7 +51,6 @@ func (r *throttledReader) Read(buf []byte) (int, error) {
 		}
 	}
 	counter.Add(uint64(n))
-	return n, err
 }
 
 func (r *throttledReader) writeTo(w io.Writer) (int64, error) {
