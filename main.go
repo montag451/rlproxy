@@ -75,6 +75,7 @@ type configuration struct {
 	Addrs     StringSlice `json:"addrs" flag:"addrs,127.0.0.1:12000,bind addresses"`
 	Upstream  string      `json:"upstream" flag:"upstream,,upstream address"`
 	Rate      HumanBytes  `json:"rate" flag:"rate,,incoming traffic rate limit"`
+	Burst     HumanBytes  `json:"burst" flag:"burst,,allowed traffic burst"`
 	PerClient bool        `json:"per_client" flag:"per-client,,apply rate limit per client"`
 	NoSplice  bool        `json:"no_splice" flag:"no-splice,,disable the use of the splice syscall (Linux only)"`
 	BufSize   HumanBytes  `json:"buf_size" flag:"buf-size,,buffer size to use to transfer data between the downstream clients and the upstream server"`
@@ -149,12 +150,15 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
+	if c.Burst == 0 {
+		c.Burst = c.Rate
+	}
 	if c.Debug {
 		log.Printf("%+v", c)
 	}
 	var limiter *rate.Limiter
 	if c.Rate > 0 {
-		limiter = rate.NewLimiter(rate.Limit(c.Rate), int(c.Rate))
+		limiter = rate.NewLimiter(rate.Limit(c.Rate), int(c.Burst))
 	}
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -184,7 +188,7 @@ func main() {
 				}
 				limiter := limiter
 				if c.Rate > 0 && c.PerClient {
-					limiter = rate.NewLimiter(rate.Limit(c.Rate), int(c.Rate))
+					limiter = rate.NewLimiter(rate.Limit(c.Rate), int(c.Burst))
 				}
 				go handleClient(&c, conn, limiter)
 			}
