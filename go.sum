@@ -2,8 +2,8 @@ github.com/dustin/go-humanize v1.0.0 h1:VSnTsYCnlFHaM2/igO1h6X3HA71jcobQuxemgkq4
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/montag451/go-sflag v0.0.0-20221110192907-60ee4f94b58b h1:rfTPKC7FBqOA+Sua3B/9u8/8/Ni1i1Og2DWWV14J1Zo=
 github.com/montag451/go-sflag v0.0.0-20221110192907-60ee4f94b58b/go.mod h1:GHHIRwobFD2+ua7k+SzLsc+ybL5ggZZWreCJYzAtyDo=
-github.com/montag451/go-splice v0.0.0-20221113170642-420d36198659 h1:QOJTCVDBORE+HrXhb43W9i/DuSt+MYdzEI1uHd4n9/g=
-github.com/montag451/go-splice v0.0.0-20221113170642-420d36198659/go.mod h1:UgXRY83tPogneFwCXFZWuTT8pD4+m4ZD4GDlf2IWlHY=
+github.com/montag451/go-splice v0.0.0-20221115133724-672f92ee7254 h1:U8HmlLc5TR2fhFVUSrez+oUcGSgkpSAPn6x8CLVCc0s=
+github.com/montag451/go-splice v0.0.0-20221115133724-672f92ee7254/go.mod h1:UgXRY83tPogneFwCXFZWuTT8pD4+m4ZD4GDlf2IWlHY=
 golang.org/x/sys v0.2.0 h1:ljd4t30dBnAvMZaQCevtY0xLLD0A+bRZXbgLMLU1F/A=
 golang.org/x/sys v0.2.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 h1:M73Iuj3xbbb9Uk1DYhzydthsj6oOd6l9bpuFcNoUvTs=
