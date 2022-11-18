@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"net"
@@ -11,11 +12,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/montag451/go-sflag"
+	"github.com/rs/zerolog"
 	"golang.org/x/time/rate"
 )
 
-var counter atomic.Uint64
+var globalCounter atomic.Uint64
 
 func handleClient(c *configuration, conn net.Conn, limiter *rate.Limiter) {
 	defer conn.Close()
@@ -40,13 +43,18 @@ func handleClient(c *configuration, conn net.Conn, limiter *rate.Limiter) {
 		defer logger.Debug().Msg("forward done")
 		var r *throttledReader
 		bs := int64(c.BufSize)
-		progress := func(n int) {
-			counter.Add(uint64(n))
-		}
 		if limit {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			var clientCounter atomic.Uint64
+			progress := func(n int) {
+				clientCounter.Add(uint64(n))
+				globalCounter.Add(uint64(n))
+			}
 			r = newThrottledReader(from, limiter, bs, c.NoSplice, progress)
+			go logRate(ctx, &logger, &clientCounter, 5*time.Second)
 		} else {
-			r = newThrottledReader(from, nil, bs, c.NoSplice, progress)
+			r = newThrottledReader(from, nil, bs, c.NoSplice, nil)
 		}
 		n, err := r.WriteTo(to)
 		logger.Debug().Msgf("%d bytes sent", n)
@@ -58,6 +66,26 @@ func handleClient(c *configuration, conn net.Conn, limiter *rate.Limiter) {
 	go forward(conn, uconn, true)
 	go forward(uconn, conn, false)
 	wg.Wait()
+}
+
+func logRate(ctx context.Context, l *zerolog.Logger, c *atomic.Uint64, interval time.Duration) {
+	var prev uint64
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			cur := c.Load()
+			rate := float64((cur-prev)*8) / interval.Seconds()
+			l.Info().
+				Float64("rate", rate).
+				Str("rate_human", humanize.SI(rate/8, "B")).
+				Msgf("rate: %.1f bps", rate)
+			prev = cur
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func main() {
@@ -94,6 +122,8 @@ func main() {
 	}
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	listeners := make([]*net.TCPListener, len(c.Addrs))
 	defer func() {
 		for _, l := range listeners {
@@ -126,17 +156,7 @@ func main() {
 			}
 		}()
 	}
-	go func() {
-		var prev uint64
-		interval := 5 * time.Second
-		for {
-			time.Sleep(interval)
-			cur := counter.Load()
-			rate := float64((cur-prev)*8) / interval.Seconds()
-			c.logger.Info().Float64("rate", rate).Msgf("rate: %.1f bps", rate)
-			prev = cur
-		}
-	}()
+	go logRate(ctx, &c.logger, &globalCounter, 5*time.Second)
 	sig := <-sigCh
 	log.Printf("signal %s received, exiting", sig)
 	for _, l := range listeners {
