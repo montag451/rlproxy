@@ -54,7 +54,9 @@ func (r *throttledReader) throttle(n int) {
 			rem -= wait
 		}
 	}
-	r.progress(n)
+	if r.progress != nil {
+		r.progress(n)
+	}
 }
 
 func (r *throttledReader) writeTo(w io.Writer) (int64, error) {
