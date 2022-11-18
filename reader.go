@@ -15,19 +15,23 @@ type writerOnly struct {
 	io.Writer
 }
 
+type progressHandler func(int)
+
 type throttledReader struct {
 	r        io.Reader
 	l        *rate.Limiter
 	bs       int64
 	noSplice bool
+	progress progressHandler
 }
 
-func newThrottledReader(r io.Reader, l *rate.Limiter, bs int64, noSplice bool) *throttledReader {
+func newThrottledReader(r io.Reader, l *rate.Limiter, bs int64, noSplice bool, h progressHandler) *throttledReader {
 	return &throttledReader{
 		r:        r,
 		l:        l,
 		bs:       bs,
 		noSplice: noSplice,
+		progress: h,
 	}
 }
 
@@ -50,7 +54,7 @@ func (r *throttledReader) throttle(n int) {
 			rem -= wait
 		}
 	}
-	counter.Add(uint64(n))
+	r.progress(n)
 }
 
 func (r *throttledReader) writeTo(w io.Writer) (int64, error) {

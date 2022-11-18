@@ -40,10 +40,13 @@ func handleClient(c *configuration, conn net.Conn, limiter *rate.Limiter) {
 		defer logger.Debug().Msg("forward done")
 		var r *throttledReader
 		bs := int64(c.BufSize)
+		progress := func(n int) {
+			counter.Add(uint64(n))
+		}
 		if limit {
-			r = newThrottledReader(from, limiter, bs, c.NoSplice)
+			r = newThrottledReader(from, limiter, bs, c.NoSplice, progress)
 		} else {
-			r = newThrottledReader(from, nil, bs, c.NoSplice)
+			r = newThrottledReader(from, nil, bs, c.NoSplice, progress)
 		}
 		n, err := r.WriteTo(to)
 		logger.Debug().Msgf("%d bytes sent", n)
