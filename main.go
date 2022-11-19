@@ -91,7 +91,7 @@ func logRate(ctx context.Context, l *zerolog.Logger, c *atomic.Uint64, interval 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	var c configuration
-	cf := flag.String("conf", "", "configuration file")
+	cf := flag.String("config", "", "configuration file")
 	sflag.AddFlags(flag.CommandLine, c)
 	flag.Parse()
 	if *cf != "" {
