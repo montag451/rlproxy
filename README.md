@@ -23,9 +23,21 @@ configuration file must be a JSON file with the following format:
     "upstream": "127.0.0.1:12001"
     "rate": "10M",
     "burst": "64KiB",
-    "buf_size": "1 Mi",
     "per_client": false,
     "no_splice": false,
-    "debug": false
+    "buf_size": "1 Mi",
+    "logging": {
+        "level": "info",
+        "console": {
+            "enabled": true,
+            "pretty": true,
+            "use_stderr": false
+
+        },
+        "syslog": {
+            "enabled": false,
+            "facility": "local0"
+        }
+    }
 }
 ```
