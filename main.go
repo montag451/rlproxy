@@ -134,7 +134,7 @@ func main() {
 	for i, addr := range c.Addrs {
 		l, err := net.Listen("tcp", addr)
 		if err != nil {
-			log.Panic(err)
+			logger.Panic().Err(err).Msgf("failed to listen on %q", addr)
 		}
 		listeners[i] = l.(*net.TCPListener)
 		wg.Add(1)
@@ -144,7 +144,7 @@ func main() {
 				conn, err := l.Accept()
 				if err != nil {
 					if !os.IsTimeout(err) {
-						log.Panic(err)
+						logger.Panic().Err(err).Msg("failed to accept new connection")
 					}
 					break
 				}
@@ -158,7 +158,7 @@ func main() {
 	}
 	go logRate(ctx, &c.logger, &globalCounter, 5*time.Second)
 	sig := <-sigCh
-	log.Printf("signal %s received, exiting", sig)
+	logger.Info().Msgf("signal %s received, exiting", sig)
 	for _, l := range listeners {
 		l.SetDeadline(time.Now())
 	}
