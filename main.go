@@ -97,7 +97,7 @@ func main() {
 	if *cf != "" {
 		err := parseConfig(&c, *cf)
 		if err != nil {
-			log.Panicf("invalid conf %q: %v", *cf, err)
+			log.Panicf("invalid config file %q: %v", *cf, err)
 		}
 	}
 	sflag.SetFromFlags(&c, flag.CommandLine)
