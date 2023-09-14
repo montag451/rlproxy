@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -17,6 +18,8 @@ import (
 	"github.com/rs/zerolog"
 	"golang.org/x/time/rate"
 )
+
+var Version = "unknown"
 
 var globalCounter atomic.Uint64
 
@@ -92,8 +95,13 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	var c configuration
 	cf := flag.String("config", "", "configuration file")
+	showVersion := flag.Bool("version", false, "show version")
 	sflag.AddFlags(flag.CommandLine, c)
 	flag.Parse()
+	if *showVersion {
+		fmt.Println(Version)
+		os.Exit(0)
+	}
 	if *cf != "" {
 		err := parseConfig(&c, *cf)
 		if err != nil {
