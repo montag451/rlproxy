@@ -1,0 +1,8 @@
+# Ignore everything
+*
+
+# Except the following files and directories necessary for the build
+!Makefile
+!*.go
+!go.mod
+!go.sum
