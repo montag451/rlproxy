@@ -1,7 +1,7 @@
 BUILDDIR ?= .build
 PREFIX ?= /usr
 INSTALLBINDIR := $(DESTDIR)/$(PREFIX)/bin
-VERSION ?= $(shell git describe --tags --dirty --always --match 'v*.*.*' --long)
+VERSION ?= $(shell git describe --tags --dirty --always --match 'v*.*.*')
 DOCKER_IMAGE_NAME ?= mtag451/rlproxy
 DOCKER_IMAGE_TAG := $(DOCKER_IMAGE_NAME):$(VERSION)
 
