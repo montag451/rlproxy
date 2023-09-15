@@ -2,6 +2,8 @@ BUILDDIR ?= .build
 PREFIX ?= /usr
 INSTALLBINDIR := $(DESTDIR)/$(PREFIX)/bin
 VERSION ?= $(shell git describe --tags --dirty --always --match 'v*.*.*' --long)
+DOCKER_IMAGE_NAME ?= mtag451/rlproxy
+DOCKER_IMAGE_TAG := $(DOCKER_IMAGE_NAME):$(VERSION)
 
 build: $(BUILDDIR)
 	@go build -v -o "$(BUILDDIR)" -trimpath -ldflags='-X main.Version=$(VERSION)'
@@ -15,8 +17,11 @@ install: build $(INSTALLBINDIR)
 $(BUILDDIR) $(INSTALLBINDIR):
 	@mkdir -p "$@"
 
-docker:
-	@docker build --build-arg version="$(VERSION)" .
+dockerbuild:
+	@docker build --tag "$(DOCKER_IMAGE_TAG)" --build-arg version="$(VERSION)" .
+
+dockerpush: dockerbuild
+	@docker push "$(DOCKER_IMAGE_TAG)"
 
 clean:
 	@rm -rf "$(BUILDDIR)"
