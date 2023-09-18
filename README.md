@@ -20,7 +20,7 @@ configuration file must be a JSON file with the following format:
     "addrs": [
         "127.0.0.1:12000"
     ],
-    "upstream": "127.0.0.1:12001"
+    "upstream": "127.0.0.1:12001",
     "rate": "10M",
     "burst": "64KiB",
     "per_client": false,
