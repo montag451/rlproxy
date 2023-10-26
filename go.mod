@@ -8,6 +8,7 @@ require (
 	github.com/montag451/go-splice v0.0.0-20221115133724-672f92ee7254
 	github.com/rs/zerolog v1.28.0
 	golang.org/x/time v0.2.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

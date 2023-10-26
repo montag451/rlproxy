@@ -12,7 +12,7 @@ clients or per client.
 configuration file or both. Type `rlproxy -h` to find out the flags
 supported by `rlproxy`. Settings specified using command line flags
 take precedence over settings in the configuration file. The
-configuration file must be a JSON file with the following format:
+configuration file can be a JSON file with the following format:
 
 ``` json
 {
@@ -40,4 +40,27 @@ configuration file must be a JSON file with the following format:
         }
     }
 }
+```
+
+or a YAML file:
+
+``` yaml
+name: my-beloved-app
+addrs:
+  - 127.0.0.1:12000
+upstream: 127.0.0.1:12001
+rate: 10M
+burst: 64KiB
+per_client: false
+no_splice: false
+buf_size: 1 Mi
+logging:
+  level: info
+  console:
+    enabled: true
+    pretty: true
+    use_stderr: false
+  syslog:
+    enabled: false
+    facility: local0
 ```
